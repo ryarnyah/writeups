@@ -1,0 +1,57 @@
+# RC3 CTF 2016 - Logmein
+Given logmein binary (https://goo.gl/qABw43)
+
+## Get flag with angr
+
+1. Get "find" and "avoid" from r2
+$ r2 -A ./logmein
+[x] Analyze all flags starting with sym. and entry0 (aa)
+[x] Analyze len bytes of instructions for references (aar)
+[x] Analyze function calls (aac)
+[ ] [*] Use -AA or aaaa to perform additional experimental analysis.
+[x] Constructing a function name for fcn.* and sym.func.* functions (aan))
+ -- Charlie! We are here.
+[0x00400530]> iz
+vaddr=0x004008b0 paddr=0x000008b0 ordinal=000 sz=18 len=17 section=.rodata type=ascii string=:"AL_RT^L*.?+6/46
+vaddr=0x004008d0 paddr=0x000008d0 ordinal=001 sz=8 len=7 section=.rodata type=ascii string=harambe
+vaddr=0x004008d8 paddr=0x000008d8 ordinal=002 sz=45 len=44 section=.rodata type=ascii string=Welcome to the RC3 secure password guesser.\n
+vaddr=0x00400905 paddr=0x00000905 ordinal=003 sz=51 len=50 section=.rodata type=ascii string=To continue, you must enter the correct password.\n
+vaddr=0x00400938 paddr=0x00000938 ordinal=004 sz=19 len=18 section=.rodata type=ascii string=Enter your guess:
+vaddr=0x0040094b paddr=0x0000094b ordinal=005 sz=5 len=4 section=.rodata type=ascii string=%32s
+vaddr=0x00400950 paddr=0x00000950 ordinal=006 sz=21 len=20 section=.rodata type=ascii string=Incorrect password!\n
+vaddr=0x00400965 paddr=0x00000965 ordinal=007 sz=46 len=45 section=.rodata type=ascii string=You entered the correct password!\nGreat job!\n
+
+[0x00400530]> axt str.Incorrect_password__n
+data 0x4007c8 movabs rdi, str.Incorrect_password__n in sub.printf_7c0
+[0x00400530]> axt str.You_entered_the_correct_password__nGreat_job__n
+data 0x4007f8 movabs rdi, str.You_entered_the_correct_password__nGreat_job__n in sub.printf_7f0
+
+2. Write exploit
+$ cat > exploit.py <<EOF
+import angr
+
+p = angr.Project('./logmein')
+state = p.factory.blank_state()
+pg = p.factory.path_group(state)
+
+# 0x4007f8 = axt str.Incorrect_password__n
+# 0x4007c8 = axt str.You_entered_the_correct_password__nGreat_job__n
+r = pg.explore(find=0x4007f8, avoid=0x4007c8)
+
+print(r.found[0].state.posix.dumps(0))
+EOF
+
+$ time python exploit.py
+RC3-2016-XORISGUD?
+
+real	0m5.348s
+user	0m4.751s
+sys	0m0.548s
+
+3. Test it :D
+$ ./logmein
+Welcome to the RC3 secure password guesser.
+To continue, you must enter the correct password.
+Enter your guess: RC3-2016-XORISGUD
+You entered the correct password!
+Great job!
